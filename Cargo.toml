@@ -1,0 +1,22 @@
+[package]
+name = "osus-proxy"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bytebuffer = "2.2.0"
+bytes = "1.5.0"
+color-eyre = "0.6.2"
+eframe = "0.23.0"
+egui = "0.23.0"
+http = "0.2.9"
+hyper = { version = "0.14.27", features = ["client", "server", "stream"] }
+hyper-rustls = { git = "https://github.com/rustls/hyper-rustls", rev = "163b3f5" }
+rhexdump = "0.2.0"
+rustls = "0.21.7"
+rustls-pemfile = "1.0.3"
+tokio = { version = "1.32.0", features = ["rt-multi-thread", "macros", "signal"] }
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
