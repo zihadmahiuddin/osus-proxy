@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::vec::Vec;
-use std::{fs, io};
+use std::io;
 
 use bytebuffer::{ByteBuffer, Endian};
 use color_eyre::{eyre::eyre, Result};
@@ -29,15 +29,14 @@ const DEFAULT_TARGET_DOMAIN: &str = "osu.ppy.sh";
 pub async fn start(preferences: Arc<Mutex<Preferences>>) -> Result<()> {
     let addr = ([127, 0, 0, 1], 443).into();
 
-    let certs = load_certs("./server.crt")?;
-    let key = load_private_key("./server.key")?;
+    let certs = load_certs()?;
+    let key = load_private_key()?;
 
     let incoming = AddrIncoming::bind(&addr)?;
     let acceptor = TlsAcceptor::builder()
         .with_single_cert(certs, key)
         .map_err(|e| eyre!("{}", e))?
         .with_http11_alpn()
-        // .with_all_versions_alpn()
         .with_incoming(incoming);
 
     let make_svc = make_service_fn(|conn: &TlsStream| {
@@ -235,20 +234,18 @@ async fn encode_bancho_packets(packets: Vec<BanchoPacket>) -> io::Result<Vec<u8>
     Ok(bytes)
 }
 
-fn load_certs(filename: &str) -> Result<Vec<rustls::Certificate>> {
-    let certfile =
-        fs::File::open(filename).map_err(|e| eyre!("failed to open {}: {}", filename, e))?;
-    let mut reader = io::BufReader::new(certfile);
+fn load_certs() -> Result<Vec<rustls::Certificate>> {
+    let cert_bytes = include_bytes!("../../server.crt");
+    let mut reader = io::BufReader::new(cert_bytes);
 
     let certs =
         rustls_pemfile::certs(&mut reader).map_err(|_| eyre!("failed to load certificate"))?;
     Ok(certs.into_iter().map(rustls::Certificate).collect())
 }
 
-fn load_private_key(filename: &str) -> Result<rustls::PrivateKey> {
-    let keyfile =
-        fs::File::open(filename).map_err(|e| eyre!("failed to open {}: {}", filename, e))?;
-    let mut reader = io::BufReader::new(keyfile);
+fn load_private_key() -> Result<rustls::PrivateKey> {
+    let key_bytes = include_bytes!("../../server.key");
+    let mut reader = io::BufReader::new(key_bytes);
 
     let keys = rustls_pemfile::rsa_private_keys(&mut reader)
         .map_err(|_| eyre!("failed to load private key"))?;
