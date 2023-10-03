@@ -1,10 +1,8 @@
+use crate::preferences::{BeatmapMirror, Preferences};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::preferences::{BeatmapMirror, Preferences};
 
-pub fn run(
-    preferences: Arc<Mutex<Preferences>>,
-) -> eframe::Result<()> {
+pub fn run(preferences: Arc<Mutex<Preferences>>) -> eframe::Result<()> {
     let tokio_rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -14,12 +12,9 @@ pub fn run(
         ..Default::default()
     };
 
-    eframe::run_simple_native(
-        "osus Proxy",
-        options,
-        move |ctx, _frame| {
-            let mut preferences = tokio_rt.block_on(preferences.lock());
-            egui::CentralPanel::default().show(ctx, |ui| {
+    eframe::run_simple_native("osus Proxy", options, move |ctx, _frame| {
+        let mut preferences = tokio_rt.block_on(preferences.lock());
+        egui::CentralPanel::default().show(ctx, |ui| {
                 ui.heading("General purpose proxy for osu!bancho server");
                 ui.checkbox(&mut preferences.fake_supporter, "Fake osu!supporter");
                 ui.vertical(|ui| {
@@ -54,5 +49,5 @@ pub fn run(
                         );
                     })
             });
-        })
+    })
 }

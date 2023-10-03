@@ -1,9 +1,9 @@
+use std::io;
 use std::io::Read;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::vec::Vec;
-use std::io;
 
 use bytebuffer::{ByteBuffer, Endian};
 use color_eyre::{eyre::eyre, Result};
@@ -67,7 +67,12 @@ pub async fn start(preferences: Arc<Mutex<Preferences>>) -> Result<()> {
 }
 
 async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
-    let Some(host) = req.headers().get("Host").and_then(|x| x.to_str().ok()).map(|x| x.to_owned()) else {
+    let Some(host) = req
+        .headers()
+        .get("Host")
+        .and_then(|x| x.to_str().ok())
+        .map(|x| x.to_owned())
+    else {
         let mut response = Response::new(Body::from("host header not found"));
         *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
         return Ok(response);
@@ -82,22 +87,22 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
             )
         })
         .find(|(_subdomain, full_source_host)| full_source_host == &host)
-        else {
-            let mut response = Response::new(Body::from(format!(
-                "target domain for host {} not found",
-                host
-            )));
-            *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-            return Ok(response);
-        };
+    else {
+        let mut response = Response::new(Body::from(format!(
+            "target domain for host {} not found",
+            host
+        )));
+        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+        return Ok(response);
+    };
     let target_host = {
-        let target_domain = if let Some(preferences) = req.extensions()
-            .get::<Arc<Mutex<Preferences>>>() {
-            let preferences = preferences.lock().await;
-            preferences.server_address.clone()
-        } else {
-            DEFAULT_TARGET_DOMAIN.to_owned()
-        };
+        let target_domain =
+            if let Some(preferences) = req.extensions().get::<Arc<Mutex<Preferences>>>() {
+                let preferences = preferences.lock().await;
+                preferences.server_address.clone()
+            } else {
+                DEFAULT_TARGET_DOMAIN.to_owned()
+            };
         subdomain + &format!(".{}", &target_domain)
     };
 
@@ -136,7 +141,10 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
 
     let req_path = req.uri().path().to_owned();
     let req_method = req.method().clone();
-    let preferences = req.extensions().get::<Arc<Mutex<Preferences>>>().map(|x| x.clone());
+    let preferences = req
+        .extensions()
+        .get::<Arc<Mutex<Preferences>>>()
+        .map(|x| x.clone());
 
     match client.request(req).await {
         Ok(mut response) => {
@@ -151,13 +159,17 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
                     response = Response::from_parts(parts, Body::from(body_bytes));
                 } else if host == "osu.".to_owned() + &*SOURCE_DOMAIN && req_method == Method::GET {
                     if req_path.starts_with("/d/") {
-                        if let Ok(id) = req_path.replace("/d/", "").replace('n', "").parse::<u32>() {
+                        if let Ok(id) = req_path.replace("/d/", "").replace('n', "").parse::<u32>()
+                        {
                             let preferences = preferences.lock().await;
                             match &preferences.beatmap_mirror {
                                 BeatmapMirror::ServerDefault => {}
                                 mirror => {
                                     let link = mirror.direct_download_link(id, false);
-                                    info!("Redirecting download request for beatmap set {} to {}", id, mirror);
+                                    info!(
+                                        "Redirecting download request for beatmap set {} to {}",
+                                        id, mirror
+                                    );
                                     response = Response::builder()
                                         .status(StatusCode::FOUND)
                                         .header("Location", link)

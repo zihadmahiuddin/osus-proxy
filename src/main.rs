@@ -1,11 +1,11 @@
 #![windows_subsystem = "windows"]
 
+use crate::preferences::Preferences;
 use color_eyre::Result;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use crate::preferences::Preferences;
 
 mod osus_proxy;
 mod preferences;
@@ -30,12 +30,16 @@ fn main() -> Result<()> {
             .build()
             .unwrap()
             .block_on(async {
-                osus_proxy::start(preferences_clone).await.expect("Failed to run proxy")
+                osus_proxy::start(preferences_clone)
+                    .await
+                    .expect("Failed to run proxy")
             })
     });
 
     ui::run(preferences).unwrap();
-    proxy_thread.join().expect("Could not join on proxy thread.");
+    proxy_thread
+        .join()
+        .expect("Could not join on proxy thread.");
 
     Ok(())
 

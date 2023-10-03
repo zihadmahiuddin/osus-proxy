@@ -13,7 +13,9 @@ pub enum BeatmapMirror {
 impl BeatmapMirror {
     pub fn direct_download_link(&self, set_id: u32, with_video: bool) -> String {
         match self {
-            BeatmapMirror::ServerDefault => unreachable!("This function should not be called on the server default variant"),
+            BeatmapMirror::ServerDefault => {
+                unreachable!("This function should not be called on the server default variant")
+            }
             BeatmapMirror::Chimu => format!("https://api.chimu.moe/d/{}", set_id),
             BeatmapMirror::BeatConnect => format!("https://beatconnect.io/b/{}", set_id),
             BeatmapMirror::Nerinyan => format!("https://api.nerinyan.moe/d/{}", set_id),
@@ -24,18 +26,10 @@ impl BeatmapMirror {
 impl Display for BeatmapMirror {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            BeatmapMirror::ServerDefault => {
-                f.write_str("Server Default")
-            }
-            BeatmapMirror::Chimu => {
-                f.write_str("chimu.moe")
-            }
-            BeatmapMirror::BeatConnect => {
-                f.write_str("BeatConnect")
-            }
-            BeatmapMirror::Nerinyan => {
-                f.write_str("nerinyan.moe")
-            }
+            BeatmapMirror::ServerDefault => f.write_str("Server Default"),
+            BeatmapMirror::Chimu => f.write_str("chimu.moe"),
+            BeatmapMirror::BeatConnect => f.write_str("BeatConnect"),
+            BeatmapMirror::Nerinyan => f.write_str("nerinyan.moe"),
         }
     }
 }
