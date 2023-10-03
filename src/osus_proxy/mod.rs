@@ -248,7 +248,7 @@ async fn encode_bancho_packets(packets: Vec<BanchoPacket>) -> io::Result<Vec<u8>
 
 fn load_certs() -> Result<Vec<rustls::Certificate>> {
     let cert_bytes = include_bytes!("../../server.crt");
-    let mut reader = io::BufReader::new(cert_bytes);
+    let mut reader = io::Cursor::new(cert_bytes);
 
     let certs =
         rustls_pemfile::certs(&mut reader).map_err(|_| eyre!("failed to load certificate"))?;
@@ -257,7 +257,7 @@ fn load_certs() -> Result<Vec<rustls::Certificate>> {
 
 fn load_private_key() -> Result<rustls::PrivateKey> {
     let key_bytes = include_bytes!("../../server.key");
-    let mut reader = io::BufReader::new(key_bytes);
+    let mut reader = io::Cursor::new(key_bytes);
 
     let keys = rustls_pemfile::rsa_private_keys(&mut reader)
         .map_err(|_| eyre!("failed to load private key"))?;
