@@ -27,7 +27,7 @@ const SOURCE_DOMAIN: &str = "osus.zihad.dev";
 const DEFAULT_TARGET_DOMAIN: &str = "osu.ppy.sh";
 
 pub async fn start(preferences: Arc<Mutex<Preferences>>) -> Result<()> {
-    let addr = ([127, 0, 0, 1], 8000).into();
+    let addr = ([127, 0, 0, 1], 443).into();
 
     let certs = load_certs("./server.crt")?;
     let key = load_private_key("./server.key")?;
