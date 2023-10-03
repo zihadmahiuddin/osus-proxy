@@ -59,7 +59,7 @@ pub async fn start(preferences: Arc<Mutex<Preferences>>) -> Result<()> {
 
     let server = Server::builder(acceptor).serve(make_svc);
 
-    println!("Starting to serve on https://{}.", addr);
+    info!("Starting to serve on https://{}.", addr);
 
     server.await?;
 
