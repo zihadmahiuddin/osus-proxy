@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     let preferences = Arc::new(Mutex::new(Preferences::default()));
 
     let preferences_clone = preferences.clone();
-    let proxy_thread = std::thread::spawn(|| {
+    let _proxy_thread = std::thread::spawn(|| {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -37,9 +37,6 @@ fn main() -> Result<()> {
     });
 
     ui::run(preferences).unwrap();
-    proxy_thread
-        .join()
-        .expect("Could not join on proxy thread.");
 
     Ok(())
 
