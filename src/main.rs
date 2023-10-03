@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use color_eyre::Result;
 use std::sync::Arc;
 use tokio::sync::Mutex;
