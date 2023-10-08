@@ -2,6 +2,7 @@
 
 use crate::preferences::Preferences;
 use color_eyre::Result;
+use updater::Updater;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::metadata::LevelFilter;
@@ -13,6 +14,7 @@ use tracing_subscriber::Layer;
 mod osus_proxy;
 mod preferences;
 mod ui;
+mod updater;
 
 fn main() -> Result<()> {
     let file_appender = tracing_appender::rolling::never("./", "osus-proxy.log");
@@ -44,7 +46,8 @@ fn main() -> Result<()> {
             })
     });
 
-    ui::run(preferences).unwrap();
+    // TODO: Replace the unwrap
+    ui::run(preferences, Updater::default().check_for_updates().unwrap()).unwrap();
 
     Ok(())
 

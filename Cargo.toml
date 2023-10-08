@@ -14,9 +14,11 @@ egui = "0.23.0"
 http = "0.2.9"
 hyper = { version = "0.14.27", features = ["client", "server", "stream"] }
 hyper-rustls = { git = "https://github.com/rustls/hyper-rustls", rev = "163b3f5" }
+reqwest = { version = "0.11.22", features = ["json", "blocking"] }
 rhexdump = "0.2.0"
 rustls = "0.21.7"
 rustls-pemfile = "1.0.3"
+sha256 = "1.4.0"
 tokio = { version = "1.32.0", features = ["rt-multi-thread", "macros", "signal"] }
 tracing = "0.1.37"
 tracing-appender = "0.2.2"
