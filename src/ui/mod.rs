@@ -1,8 +1,8 @@
-use crate::preferences::{BeatmapMirror, Preferences};
+use crate::{preferences::{BeatmapMirror, Preferences}};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-pub fn run(preferences: Arc<Mutex<Preferences>>) -> eframe::Result<()> {
+pub fn run(preferences: Arc<Mutex<Preferences>>, update_status: bool) -> eframe::Result<()> {
     let tokio_rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -22,6 +22,15 @@ pub fn run(preferences: Arc<Mutex<Preferences>>) -> eframe::Result<()> {
                     ui.text_edit_singleline(&mut preferences.server_address)
                         .labelled_by(label.id);
                 });
+
+                if update_status  {
+                    if ui.button("Update available! Click to update").clicked() {
+                        // I HAVE NO IDEA HOW I WILL SHOW A PROGRESS HERE TASUKETE
+                        println!("Update button clicked");
+                    }
+                } else {
+                    ui.label("\nYou're up to date!\n");
+                }
 
                 egui::ComboBox::from_label("Beatmap Download Mirror")
                     .selected_text(format!("{:?}", &preferences.beatmap_mirror))
