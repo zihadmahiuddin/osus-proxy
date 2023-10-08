@@ -21,7 +21,7 @@ mod bancho;
 use crate::preferences::{BeatmapMirror, Preferences};
 use bancho::{BanchoPacket, BanchoPacketHeader};
 
-const SUBDOMAINS: &[&str] = &["c", "ce", "c4", "osu", "b", "api"];
+const SUBDOMAINS: &[&str] = &["c", "ce", "c4", "osu", "b", "api", "a"];
 
 const SOURCE_DOMAIN: &str = "osus.zihad.dev";
 const DEFAULT_TARGET_DOMAIN: &str = "osu.ppy.sh";
