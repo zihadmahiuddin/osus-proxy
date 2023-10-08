@@ -44,9 +44,9 @@ pub struct Preferences {
 impl Default for Preferences {
     fn default() -> Self {
         Self {
-            #[cfg(debug_assertions)]
-            server_address: "cmyui.xyz".to_owned(),
-            #[cfg(not(debug_assertions))]
+            // #[cfg(debug_assertions)]
+            // server_address: "cmyui.xyz".to_owned(),
+            // #[cfg(not(debug_assertions))]
             server_address: "ppy.sh".to_owned(),
             fake_supporter: true,
             beatmap_mirror: Default::default(),

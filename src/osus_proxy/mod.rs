@@ -8,7 +8,7 @@ use std::vec::Vec;
 use bytebuffer::{ByteBuffer, Endian};
 use color_eyre::{eyre::eyre, Result};
 use http::uri::{Authority, Scheme};
-use http::{HeaderValue, Method};
+use http::{header, HeaderValue, Method};
 use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn, Service};
 use hyper::{Body, Client, Request, Response, Server, StatusCode, Uri};
@@ -72,11 +72,11 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
         .get("Host")
         .and_then(|x| x.to_str().ok())
         .map(|x| x.to_owned())
-    else {
-        let mut response = Response::new(Body::from("host header not found"));
-        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-        return Ok(response);
-    };
+        else {
+            let mut response = Response::new(Body::from("host header not found"));
+            *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+            return Ok(response);
+        };
     let Some((subdomain, _)) = SUBDOMAINS
         .iter()
         .map(|&subdomain| subdomain.to_owned())
@@ -87,15 +87,15 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
             )
         })
         .find(|(_subdomain, full_source_host)| full_source_host == &host)
-    else {
-        let mut response = Response::new(Body::from(format!(
-            "target domain for host {} not found",
-            host
-        )));
-        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-        return Ok(response);
-    };
-    let target_host = {
+        else {
+            let mut response = Response::new(Body::from(format!(
+                "target domain for host {} not found",
+                host
+            )));
+            *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+            return Ok(response);
+        };
+    let (target_host, target_domain) = {
         let target_domain =
             if let Some(preferences) = req.extensions().get::<Arc<Mutex<Preferences>>>() {
                 let preferences = preferences.lock().await;
@@ -103,7 +103,7 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
             } else {
                 DEFAULT_TARGET_DOMAIN.to_owned()
             };
-        subdomain + &format!(".{}", &target_domain)
+        (subdomain + &format!(".{}", &target_domain), target_domain)
     };
 
     let mut uri_parts = req.uri().clone().into_parts();
@@ -125,7 +125,6 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
     );
     headers.insert("X-Real-IP", HeaderValue::from_str(&client_ip_addr).unwrap());
     headers.insert("Host", HeaderValue::from_str(&target_host).unwrap());
-    dbg!(&headers);
 
     let tls = rustls::ClientConfig::builder()
         .with_safe_defaults()
@@ -146,6 +145,21 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
         .get::<Arc<Mutex<Preferences>>>()
         .map(|x| x.clone());
 
+    if req.headers().contains_key("osu-token") {
+        if let Some(preferences) = preferences.clone() {
+            if req_path == "/" && req_method == Method::POST {
+                let (mut parts, body) = req.into_parts();
+                let body_bytes = hyper::body::to_bytes(body).await.unwrap();
+                let mut packets = decode_bancho_packets(body_bytes.as_ref()).await.unwrap();
+                let preferences = preferences.lock().await;
+                process_bancho_packets(&preferences, &mut packets, &target_domain).await;
+                let body_bytes = encode_bancho_packets(packets).await.unwrap();
+                parts.headers.insert(header::CONTENT_LENGTH, HeaderValue::from(body_bytes.len()));
+                req = Request::from_parts(parts, Body::from(body_bytes));
+            }
+        }
+    }
+
     match client.request(req).await {
         Ok(mut response) => {
             if let Some(preferences) = preferences {
@@ -154,7 +168,7 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
                     let body_bytes = hyper::body::to_bytes(body).await.unwrap();
                     let mut packets = decode_bancho_packets(body_bytes.as_ref()).await.unwrap();
                     let preferences = preferences.lock().await;
-                    process_bancho_packets(&preferences, &mut packets).await;
+                    process_bancho_packets(&preferences, &mut packets, &target_domain).await;
                     let body_bytes = encode_bancho_packets(packets).await.unwrap();
                     response = Response::from_parts(parts, Body::from(body_bytes));
                 } else if host == "osu.".to_owned() + &*SOURCE_DOMAIN && req_method == Method::GET {
@@ -203,8 +217,7 @@ async fn decode_bancho_packets(bytes: &[u8]) -> io::Result<Vec<BanchoPacket>> {
             break;
         } else if remaining_bytes < 7 {
             let leftover = bytebuf.read_bytes(remaining_bytes)?;
-            warn!("Encountered {remaining_bytes} leftover bytes:");
-            rhexdump::rhexdump!(&leftover);
+            warn!("Encountered {remaining_bytes} leftover bytes:\n{}", rhexdump::rhexdumps!(&leftover));
             break;
         } else {
             let mut header_bytes = [0; 7];
@@ -218,9 +231,31 @@ async fn decode_bancho_packets(bytes: &[u8]) -> io::Result<Vec<BanchoPacket>> {
     Ok(packets)
 }
 
-async fn process_bancho_packets(preferences: &Preferences, packets: &mut Vec<BanchoPacket>) {
+async fn process_bancho_packets(
+    preferences: &Preferences,
+    packets: &mut Vec<BanchoPacket>,
+    target_domain: &str,
+) {
     for packet in packets {
         match packet {
+            BanchoPacket::SendPublicMessage(message) => {
+                info!("Sending public message {:?}", message);
+                if message.text.contains("ACTION is listening to") {
+                    message.text = message.text.replace("https://osu.osus.zihad.dev/beatmapsets", &*format!("https://osu.{}/beatmapsets", target_domain));
+                }
+            }
+            BanchoPacket::SendPrivateMessage(message) => {
+                info!("Sending private message {:?}", message);
+                if message.text.contains("ACTION is listening to") {
+                    message.text = message.text.replace("https://osu.osus.zihad.dev/beatmapsets", &*format!("https://osu.{}/beatmapsets", target_domain));
+                }
+            }
+            BanchoPacket::SendMessage(message) => {
+                info!("Receiving message {:?}", message);
+                if message.text.contains("ACTION is listening to") {
+                    message.text = message.text.replace(&format!("https://osu.{}/beatmapsets", target_domain), "https://osu.osus.zihad.dev/beatmapsets");
+                }
+            }
             BanchoPacket::Privilege {
                 privileges_bitfield,
             } => {
