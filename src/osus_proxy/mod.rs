@@ -16,7 +16,7 @@ use hyper_rustls::{acceptor::TlsStream, ConfigBuilderExt, TlsAcceptor};
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
-mod bancho;
+pub mod bancho;
 
 use crate::preferences::{BeatmapMirror, Preferences};
 use bancho::{BanchoPacket, BanchoPacketHeader};
@@ -152,8 +152,8 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
                 let (mut parts, body) = req.into_parts();
                 let body_bytes = hyper::body::to_bytes(body).await.unwrap();
                 let mut packets = decode_bancho_packets(body_bytes.as_ref()).await.unwrap();
-                let preferences = preferences.lock().await;
-                process_bancho_packets(&preferences, &mut packets, &target_domain).await;
+                let mut preferences = preferences.lock().await;
+                process_bancho_packets(&mut preferences, &mut packets, &target_domain).await;
                 let body_bytes = encode_bancho_packets(packets).await.unwrap();
                 parts.headers.insert(header::CONTENT_LENGTH, HeaderValue::from(body_bytes.len()));
                 req = Request::from_parts(parts, Body::from(body_bytes));
@@ -168,8 +168,8 @@ async fn handle_requests(mut req: Request<Body>) -> Result<Response<Body>> {
                     let (parts, body) = response.into_parts();
                     let body_bytes = hyper::body::to_bytes(body).await.unwrap();
                     let mut packets = decode_bancho_packets(body_bytes.as_ref()).await.unwrap();
-                    let preferences = preferences.lock().await;
-                    process_bancho_packets(&preferences, &mut packets, &target_domain).await;
+                    let mut preferences = preferences.lock().await;
+                    process_bancho_packets(&mut preferences, &mut packets, &target_domain).await;
                     let body_bytes = encode_bancho_packets(packets).await.unwrap();
                     response = Response::from_parts(parts, Body::from(body_bytes));
                 } else if host == "osu.".to_owned() + &*SOURCE_DOMAIN && req_method == Method::GET {
@@ -233,7 +233,7 @@ async fn decode_bancho_packets(bytes: &[u8]) -> io::Result<Vec<BanchoPacket>> {
 }
 
 async fn process_bancho_packets(
-    preferences: &Preferences,
+    preferences: &mut Preferences,
     packets: &mut Vec<BanchoPacket>,
     target_domain: &str,
 ) {
@@ -244,6 +244,9 @@ async fn process_bancho_packets(
                 if message.text.contains("ACTION is listening to") {
                     message.text = message.text.replace("https://osu.osus.zihad.dev/beatmapsets", &*format!("https://osu.{}/beatmapsets", target_domain));
                 }
+            }
+            BanchoPacket::UserId(user_id) => {
+                preferences.user_id = Some(*user_id);
             }
             BanchoPacket::SendPrivateMessage(message) => {
                 info!("Sending private message {:?}", message);
@@ -271,6 +274,15 @@ async fn process_bancho_packets(
             BanchoPacket::ChangeAction { action, .. } => {
                 if action == &UserAction::OsuDirect && preferences.fake_supporter {
                     return false;
+                }
+            }
+            BanchoPacket::UserPresence { user_id, country_code, .. } => {
+                if let Some(country) = &preferences.fake_country {
+                    if let Some(logged_in_user_id) = preferences.user_id {
+                        if logged_in_user_id == *user_id {
+                            *country_code = country.as_u8();
+                        }
+                    }
                 }
             }
             _ => {}

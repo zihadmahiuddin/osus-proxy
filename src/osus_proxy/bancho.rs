@@ -3,6 +3,7 @@ use std::io::{self, Read};
 use bytebuffer::{ByteBuffer, Endian};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
+use strum::{Display, EnumIter};
 
 pub struct BanchoPacketHeader {
     id: u16,
@@ -167,6 +168,138 @@ impl UserAction {
         FromPrimitive::from_u8(repr).unwrap_or(Self::Unknown)
     }
 }
+
+#[repr(u8)]
+#[derive(Debug, PartialEq, Clone, Display, FromPrimitive, ToPrimitive, EnumIter)]
+pub enum Country {
+    Unknown = 0,
+    UnitedArabEmirates = 4,
+    Argentina = 13,
+    Austria = 15,
+    Australia = 16,
+    Azerbaijan = 18,
+    Barbados = 20,
+    Bangladesh = 21,
+    Belgium = 22,
+    Bulgaria = 24,
+    Bahrain = 25,
+    Brunei = 29,
+    Brazil = 31,
+    Bhutan = 33,
+    Botswana = 35,
+    Belarus = 36,
+    Canada = 38,
+    Switzerland = 43,
+    CoteDIvoire = 44,
+    Chile = 46,
+    China = 48,
+    Colombia = 49,
+    CostaRica = 50,
+    Cuba = 51,
+    Cyprus = 54,
+    Czechia = 55,
+    Germany = 56,
+    Djibouti = 57,
+    Denmark = 58,
+    Algeria = 61,
+    Ecuador = 62,
+    Estonia = 63,
+    Egypt = 64,
+    Spain = 67,
+    Ethiopia = 68,
+    Finland = 69,
+    Fiji = 70,
+    France = 74,
+    Gabon = 76,
+    UnitedKingdom = 77,
+    Ghana = 81,
+    Greece = 88,
+    Guam = 91,
+    HongKong = 94,
+    Honduras = 96,
+    Croatia = 97,
+    Hungary = 99,
+    Indonesia = 100,
+    Ireland = 101,
+    Israel = 102,
+    India = 103,
+    Iraq = 105,
+    Iran = 106,
+    Iceland = 107,
+    Italy = 108,
+    Jamaica = 109,
+    Jordan = 110,
+    Japan = 111,
+    Kenya = 112,
+    Cambodia = 114,
+    SouthKorea = 119,
+    Kuwait = 120,
+    Liechtenstein = 126,
+    SriLanka = 127,
+    Lithuania = 130,
+    Luxembourg = 131,
+    Latvia = 132,
+    Morocco = 134,
+    Monaco = 135,
+    Madagascar = 137,
+    NorthMacedonia = 139,
+    Myanmar = 141,
+    Mongolia = 142,
+    Malta = 148,
+    Mauritius = 149,
+    Maldives = 150,
+    Mexico = 152,
+    Malaysia = 153,
+    NewCaledonia = 156,
+    Nigeria = 159,
+    Netherlands = 161,
+    Norway = 162,
+    Nepal = 163,
+    NewZealand = 166,
+    Oman = 167,
+    Panama = 168,
+    Peru = 169,
+    PapuaNewGuinea = 171,
+    Philippines = 172,
+    Pakistan = 173,
+    Poland = 174,
+    Portugal = 179,
+    Paraguay = 181,
+    Qatar = 182,
+    Romania = 184,
+    RussianFederation = 185,
+    SaudiArabia = 187,
+    Sudan = 190,
+    Sweden = 191,
+    Singapore = 192,
+    Slovenia = 194,
+    Slovakia = 196,
+    SierraLeone = 197,
+    Senegal = 199,
+    ElSalvador = 203,
+    SyrianArabRepublic = 204,
+    Togo = 209,
+    Thailand = 210,
+    Tunisia = 214,
+    Turkey = 217,
+    TrinidadAndTobago = 218,
+    Taiwan = 220,
+    Tanzania = 221,
+    Ukraine = 222,
+    UnitedStates = 225,
+    Uruguay = 226,
+    Venezuela = 230,
+    Vietnam = 233,
+    SouthAfrica = 240,
+    Zimbabwe = 243,
+}
+
+impl Country {
+    pub fn as_u8(&self) -> u8 {
+        ToPrimitive::to_u8(self).expect("How do we even have a self of this...")
+    }
+}
+
 #[repr(u16)]
 #[derive(Debug)]
 pub enum BanchoPacket {
@@ -180,12 +313,23 @@ pub enum BanchoPacket {
         map_id: i32,
     } = 0,
     SendPublicMessage(OsuMessage) = 1,
+    UserId(i32) = 5,
     SendMessage(OsuMessage) = 7,
     SendPrivateMessage(OsuMessage) = 25,
     Privilege {
         // TODO: bitfield
         privileges_bitfield: u32
     } = 71,
+    UserPresence {
+        user_id: i32,
+        name: String,
+        utc_offset: u8,
+        country_code: u8,
+        bancho_privileges: u8,
+        longitude: f32,
+        latitude: f32,
+        global_rank: i32,
+    } = 83,
     Other { id: u16, data: Vec<u8> } = u16::MAX,
 }
 
@@ -216,6 +360,10 @@ impl BanchoPacket {
                 let message = bytebuf.read_osu_message()?;
                 Ok(Self::SendPublicMessage(message))
             }
+            5 => {
+                let user_id = bytebuf.read_i32()?;
+                Ok(Self::UserId(user_id))
+            }
             7 => {
                 let message = bytebuf.read_osu_message()?;
                 Ok(Self::SendMessage(message))
@@ -228,6 +376,26 @@ impl BanchoPacket {
                 let privileges_bitfield = bytebuf.read_u32()?;
                 Ok(Self::Privilege {
                     privileges_bitfield,
+                })
+            }
+            83 => {
+                let user_id = bytebuf.read_i32()?;
+                let name = bytebuf.read_osu_string()?;
+                let utc_offset = bytebuf.read_u8()?;
+                let country_code = bytebuf.read_u8()?;
+                let bancho_privileges = bytebuf.read_u8()?;
+                let longitude = bytebuf.read_f32()?;
+                let latitude = bytebuf.read_f32()?;
+                let global_rank = bytebuf.read_i32()?;
+                Ok(Self::UserPresence {
+                    user_id,
+                    name,
+                    utc_offset,
+                    country_code,
+                    bancho_privileges,
+                    longitude,
+                    latitude,
+                    global_rank,
                 })
             }
             _ => {
@@ -246,9 +414,11 @@ impl BanchoPacket {
         match self {
             BP::ChangeAction { .. } => 0,
             BP::SendPublicMessage(_) => 1,
+            BP::UserId(_) => 5,
             BP::SendMessage(_) => 7,
             BP::SendPrivateMessage(_) => 25,
             BP::Privilege { .. } => 71,
+            BP::UserPresence { .. } => 83,
             BP::Other { id, .. } => *id,
         }
     }
@@ -278,6 +448,9 @@ impl BanchoPacket {
             BP::SendPublicMessage(message) => {
                 bytebuf.write_osu_message(message);
             }
+            BP::UserId(user_id) => {
+                bytebuf.write_i32(*user_id);
+            }
             BP::SendMessage(message) => {
                 bytebuf.write_osu_message(message);
             }
@@ -288,6 +461,25 @@ impl BanchoPacket {
                 privileges_bitfield,
             } => {
                 bytebuf.write_u32(*privileges_bitfield);
+            }
+            BP::UserPresence {
+                user_id,
+                name,
+                utc_offset,
+                country_code,
+                bancho_privileges,
+                longitude,
+                latitude,
+                global_rank
+            } => {
+                bytebuf.write_i32(*user_id);
+                bytebuf.write_osu_string(name);
+                bytebuf.write_u8(*utc_offset);
+                bytebuf.write_u8(*country_code);
+                bytebuf.write_u8(*bancho_privileges);
+                bytebuf.write_f32(*longitude);
+                bytebuf.write_f32(*latitude);
+                bytebuf.write_i32(*global_rank);
             }
             BP::Other { data, .. } => {
                 bytebuf.write_bytes(&data);

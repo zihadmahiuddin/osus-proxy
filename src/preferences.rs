@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use crate::osus_proxy::bancho::Country;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum BeatmapMirror {
@@ -39,6 +40,9 @@ pub struct Preferences {
     pub server_address: String,
     pub fake_supporter: bool,
     pub beatmap_mirror: BeatmapMirror,
+    pub fake_country: Option<Country>,
+    // there's no other state rn so we just keep this in preferences lol
+    pub user_id: Option<i32>,
 }
 
 impl Default for Preferences {
@@ -50,6 +54,8 @@ impl Default for Preferences {
             server_address: "ppy.sh".to_owned(),
             fake_supporter: true,
             beatmap_mirror: Default::default(),
+            fake_country: None,
+            user_id: None,
         }
     }
 }
