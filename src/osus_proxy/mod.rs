@@ -20,6 +20,7 @@ mod bancho;
 
 use crate::preferences::{BeatmapMirror, Preferences};
 use bancho::{BanchoPacket, BanchoPacketHeader};
+use crate::osus_proxy::bancho::UserAction;
 
 const SUBDOMAINS: &[&str] = &["c", "ce", "c4", "osu", "b", "api", "a"];
 
@@ -236,7 +237,7 @@ async fn process_bancho_packets(
     packets: &mut Vec<BanchoPacket>,
     target_domain: &str,
 ) {
-    for packet in packets {
+    packets.retain_mut(|packet| {
         match packet {
             BanchoPacket::SendPublicMessage(message) => {
                 info!("Sending public message {:?}", message);
@@ -267,9 +268,16 @@ async fn process_bancho_packets(
                     // *privileges_bitfield = *privileges_bitfield & !(1 << 2);
                 }
             }
+            BanchoPacket::ChangeAction { action, .. } => {
+                if action == &UserAction::OsuDirect && preferences.fake_supporter {
+                    return false;
+                }
+            }
             _ => {}
         }
-    }
+
+        true
+    });
 }
 
 async fn encode_bancho_packets(packets: Vec<BanchoPacket>) -> io::Result<Vec<u8>> {

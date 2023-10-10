@@ -1,6 +1,8 @@
 use std::io::{self, Read};
 
 use bytebuffer::{ByteBuffer, Endian};
+use num_derive::{FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive};
 
 pub struct BanchoPacketHeader {
     id: u16,
@@ -45,6 +47,7 @@ pub trait OsuWriter {
 }
 
 const LEB128_HIGH_ORDER_BIT: u8 = 1 << 7;
+
 impl OsuReader for ByteBuffer {
     fn read_uleb128(&mut self) -> io::Result<u64> {
         let mut result = 0;
@@ -136,14 +139,53 @@ impl OsuWriter for ByteBuffer {
     }
 }
 
+#[repr(u8)]
+#[derive(Debug, PartialEq, FromPrimitive, ToPrimitive)]
+pub enum UserAction {
+    Idle = 0,
+    Afk = 1,
+    Playing = 2,
+    Editing = 3,
+    Modding = 4,
+    Multiplayer = 5,
+    Watching = 6,
+    Unknown = 7,
+    Testing = 8,
+    Submitting = 9,
+    Paused = 10,
+    Lobby = 11,
+    Multiplaying = 12,
+    OsuDirect = 13,
+}
+
+impl UserAction {
+    pub fn as_u8(&self) -> u8 {
+        ToPrimitive::to_u8(self).expect("How do we even have a self of this...")
+    }
+
+    pub fn from_u8(repr: u8) -> Self {
+        FromPrimitive::from_u8(repr).unwrap_or(Self::Unknown)
+    }
+}
 #[repr(u16)]
 #[derive(Debug)]
 pub enum BanchoPacket {
-    // TODO: bitfield
+    ChangeAction {
+        action: UserAction,
+        info_text: String,
+        map_md5: String,
+        // TODO: bitfield
+        mods: u32,
+        mode: u8,
+        map_id: i32,
+    } = 0,
     SendPublicMessage(OsuMessage) = 1,
     SendMessage(OsuMessage) = 7,
     SendPrivateMessage(OsuMessage) = 25,
-    Privilege { privileges_bitfield: u32 } = 71,
+    Privilege {
+        // TODO: bitfield
+        privileges_bitfield: u32
+    } = 71,
     Other { id: u16, data: Vec<u8> } = u16::MAX,
 }
 
@@ -153,6 +195,23 @@ impl BanchoPacket {
         bytebuf: &mut ByteBuffer,
     ) -> io::Result<Self> {
         match header.id {
+            0 => {
+                let action = bytebuf.read_u8()?;
+                let action = UserAction::from_u8(action);
+                let info_text = bytebuf.read_osu_string()?;
+                let map_md5 = bytebuf.read_osu_string()?;
+                let mods = bytebuf.read_u32()?;
+                let mode = bytebuf.read_u8()?;
+                let map_id = bytebuf.read_i32()?;
+                Ok(Self::ChangeAction {
+                    action,
+                    info_text,
+                    map_md5,
+                    mods,
+                    mode,
+                    map_id,
+                })
+            }
             1 => {
                 let message = bytebuf.read_osu_message()?;
                 Ok(Self::SendPublicMessage(message))
@@ -185,6 +244,7 @@ impl BanchoPacket {
     pub fn id(&self) -> u16 {
         use BanchoPacket as BP;
         match self {
+            BP::ChangeAction { .. } => 0,
             BP::SendPublicMessage(_) => 1,
             BP::SendMessage(_) => 7,
             BP::SendPrivateMessage(_) => 25,
@@ -200,6 +260,21 @@ impl BanchoPacket {
         bytebuf.set_endian(Endian::LittleEndian);
 
         match self {
+            BP::ChangeAction {
+                action,
+                info_text,
+                map_md5,
+                mods,
+                mode,
+                map_id
+            } => {
+                bytebuf.write_u8(action.as_u8());
+                bytebuf.write_osu_string(&info_text);
+                bytebuf.write_osu_string(&map_md5);
+                bytebuf.write_u32(*mods);
+                bytebuf.write_u8(*mode);
+                bytebuf.write_i32(*map_id);
+            }
             BP::SendPublicMessage(message) => {
                 bytebuf.write_osu_message(message);
             }
