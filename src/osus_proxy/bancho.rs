@@ -40,8 +40,8 @@ pub trait OsuReader {
 
 pub trait OsuWriter {
     fn write_uleb128(&mut self, value: u64);
-    fn write_osu_string(&mut self, value: String);
-    fn write_osu_message(&mut self, value: OsuMessage);
+    fn write_osu_string(&mut self, value: &str);
+    fn write_osu_message(&mut self, value: &OsuMessage);
 }
 
 const LEB128_HIGH_ORDER_BIT: u8 = 1 << 7;
@@ -116,22 +116,22 @@ impl OsuWriter for ByteBuffer {
         }
     }
 
-    fn write_osu_string(&mut self, value: String) {
+    fn write_osu_string(&mut self, value: &str) {
         let exists = !value.is_empty();
         if !exists {
             self.write_u8(0x00);
         } else {
             self.write_u8(0x0b);
-            let bytes = value.into_bytes();
+            let bytes = value.as_bytes();
             self.write_uleb128(bytes.len() as u64);
             self.write_bytes(&bytes);
         }
     }
 
-    fn write_osu_message(&mut self, value: OsuMessage) {
-        self.write_osu_string(value.sender);
-        self.write_osu_string(value.text);
-        self.write_osu_string(value.recipient);
+    fn write_osu_message(&mut self, value: &OsuMessage) {
+        self.write_osu_string(&value.sender);
+        self.write_osu_string(&value.text);
+        self.write_osu_string(&value.recipient);
         self.write_i32(value.sender_id);
     }
 }
@@ -201,13 +201,13 @@ impl BanchoPacket {
 
         match self {
             BP::SendPublicMessage(message) => {
-                bytebuf.write_osu_message(message.clone());
+                bytebuf.write_osu_message(message);
             }
             BP::SendMessage(message) => {
-                bytebuf.write_osu_message(message.clone());
+                bytebuf.write_osu_message(message);
             }
             BP::SendPrivateMessage(message) => {
-                bytebuf.write_osu_message(message.clone());
+                bytebuf.write_osu_message(message);
             }
             BP::Privilege {
                 privileges_bitfield,
